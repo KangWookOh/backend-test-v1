@@ -16,12 +16,12 @@ allprojects {
     group = "kr.thedream"
     version = "0.0.1-SNAPSHOT"
 
-    java { toolchain { languageVersion = JavaLanguageVersion.of(22) } }
+    java { toolchain { languageVersion = JavaLanguageVersion.of(21) } }
 
     kotlin {
         compilerOptions {
             freeCompilerArgs.addAll("-Xjsr305=strict")
-            // Java 22 툴체인을 사용하되, 바이트코드 타겟은 21로 고정(컴파일러 호환성)
+            // Java 21 툴체인을 사용하되, 바이트코드 타겟은 21로 고정(컴파일러 호환성)
             @Suppress("UnstableApiUsage")
             jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
         }
@@ -91,6 +91,7 @@ project(":modules:infrastructure") {
         apply(plugin = "org.springframework.boot")
         apply(plugin = "io.spring.dependency-management")
         apply(plugin = "org.jetbrains.kotlin.plugin.spring")
+        apply(plugin = "org.jetbrains.kotlin.plugin.jpa")
     }
 }
 
