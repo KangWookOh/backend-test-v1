@@ -15,10 +15,10 @@ data class PaymentResponse(
     val netAmount: BigDecimal,
     val cardLast4: String?,
     val approvalCode: String,
-    @get:JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @get:JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
     val approvedAt: LocalDateTime,
     val status: PaymentStatus,
-    @get:JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @get:JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
     val createdAt: LocalDateTime,
 ) {
     companion object {
@@ -37,4 +37,3 @@ data class PaymentResponse(
         )
     }
 }
-
