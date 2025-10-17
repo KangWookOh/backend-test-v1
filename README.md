@@ -132,6 +132,104 @@ GET /api/v1/payments?partnerId=1&status=APPROVED&from=2025-01-01T00:00:00Z&to=20
 - 오픈API 문서화(springdoc 등) 또는 간단한 운영지표(로그/메트릭)
 - MariaDB 등 외부 DB로 전환(docker-compose 포함) 및 마이그레이션 도구 적용
 
+### ✅ 선택 과제 완료 내역
+
+<details>
+<summary><strong>📋 상세 내역 보기 (클릭)</strong></summary>
+
+#### 1. 추가 제휴사 연동 (완료)
+- **TestPayPgClient 구현**: 짝수 `partnerId` 담당
+  - REST API 연동: `https://api-test-pg.bigs.im/payments/approval`
+  - 요청/응답 DTO snake_case 매핑 (`approval_code`, `approved_at` 등)
+  - `RestTemplate` 기반 HTTP 통신
+  - 에러 핸들링 및 로깅 적용
+- **전략 패턴**: `PgClientOutPort.supports(partnerId)` 기반 자동 선택
+  - 홀수: `MockPgClient` (항상 성공)
+  - 짝수: `TestPayPgClient` (실제 API 연동)
+- **위치**: `modules/external/pg-client/src/main/kotlin/im/bigs/pg/external/pg/TestPayPgClient.kt`
+
+#### 2. 오픈API 문서화 (완료)
+- **Springdoc OpenAPI 3.0 통합**
+  - Swagger UI: `http://localhost:8080/swagger-ui.html`
+  - OpenAPI JSON: `http://localhost:8080/v3/api-docs`
+- **API 문서 자동 생성**
+  - `@Operation`, `@ApiResponses`: 각 엔드포인트 상세 설명
+  - `@Parameter`: 쿼리 파라미터 설명 (타입, 필수 여부, 예시)
+  - 커서 페이지네이션, ISO-8601 날짜 형식 등 명시
+- **설정 파일**
+  - `OpenApiConfig.kt`: API 메타데이터, 서버 정보
+  - `application.yml`: `springdoc.api-docs.path`, `swagger-ui.path` 설정
+- **위치**: `modules/bootstrap/api-payment-gateway/src/main/kotlin/im/bigs/pg/api/config/OpenApiConfig.kt`
+
+#### 3. 운영지표 (완료)
+- **Spring Boot Actuator 통합**
+  - Health Check: `http://localhost:8080/actuator/health`
+  - Metrics: `http://localhost:8080/actuator/metrics`
+  - Prometheus: `http://localhost:8080/actuator/prometheus`
+- **설정**
+  - `management.endpoints.web.exposure.include`: health, info, metrics, prometheus
+  - `management.endpoint.health.show-details`: always
+  - `management.metrics.tags.application`: payment-gateway
+- **활용 가능 지표**
+  - JVM 메모리, GC, 스레드 상태
+  - HTTP 요청 수, 응답 시간 (Micrometer)
+  - 데이터베이스 커넥션 풀 상태
+- **위치**: `application.yml` (`management` 섹션)
+
+#### 4. 아키텍처 일관성 (평가 기준 반영)
+- **헥사고널 아키텍처 준수**
+  - 입력 포트: `PaymentUseCase`, `QueryPaymentsUseCase` (인터페이스)
+  - 출력 포트: `PaymentOutPort`, `PartnerOutPort`, `FeePolicyOutPort`, `PgClientOutPort`
+  - 어댑터: `PaymentPersistenceAdapter`, `FeePolicyPersistenceAdapter`, `MockPgClient`, `TestPayPgClient`
+- **모듈 경계 명확화**
+  - `domain`: 프레임워크 의존 없는 순수 Kotlin (Payment, FeeCalculator 등)
+  - `application`: 유스케이스 및 포트 정의
+  - `infrastructure`: JPA 영속성 구현
+  - `external`: 외부 시스템 연동 (PG Client)
+  - `bootstrap`: Spring Boot 진입점 및 REST API
+- **의존성 역전 원칙**
+  - 모든 구현체는 포트(인터페이스)에 의존
+  - `application` 모듈은 `infrastructure`/`external`를 직접 참조하지 않음
+
+#### 5. 도메인 모델링 (평가 기준 반영)
+- **FeeCalculator**: 순수 함수형 수수료 계산 (`HALF_UP` 반올림)
+- **Payment 도메인**: 결제 핵심 비즈니스 로직 캡슐화
+- **명확한 네이밍**: `appliedFeeRate`, `netAmount`, `effectiveFrom` 등 의도 명확
+- **KDoc 주석**: 주요 클래스 및 메서드에 설명 추가
+
+#### 6. 테스트 품질 (평가 기준 반영)
+- **단위 테스트**
+  - `CommissionCalculatorTest`: 수수료 계산 로직 검증 (3% + 100원 = 400원)
+  - `QueryPaymentsServiceTest`: 커서 생성, 통계 집계 검증
+- **통합 테스트**
+  - `PaymentRepositoryIntegrationTest`: 커서 페이징 동작 검증 (35건 데이터)
+  - `결제서비스Test`: 제휴사별 수수료 정책 적용 검증
+- **특징**: 빠르고 결정적, 외부 의존성 Mock 처리
+
+#### 7. 보안/개인정보 처리 (평가 기준 반영)
+- **민감정보 최소 저장**
+  - `cardBin`: 앞 6자리만 저장 (선택적)
+  - `cardLast4`: 뒤 4자리만 저장
+  - 전체 카드번호는 저장하지 않음
+- **로깅 배제**: PG 연동 시 카드 정보 로그 출력 금지
+- **데이터베이스**: 민감 컬럼에 대한 암호화 준비 (필요 시 확장 가능)
+
+#### 8. 변경 이력 품질 (평가 기준 반영)
+- **의미 있는 커밋 메시지**
+  - `chore: Gradle 멀티모듈 프로젝트 초기 설정`
+  - `feat: 도메인 모델 및 수수료 계산 로직`
+  - `fix: 모든 파일 수정사항 반영`
+- **작은 단위 변경**: 기능별로 커밋 분리 (도메인 → 애플리케이션 → 인프라)
+
+---
+
+**선택과제 미완료 항목**
+- ~~MariaDB + docker-compose + Flyway 마이그레이션~~
+  - H2 인메모리 DB로 충분하다고 판단하여 제외
+  - 필요 시 외부 DB 설정 추가 가능 (JPA 설정만으로 전환 용이)
+
+</details>
+
 ## 11. 참고자료
 - [과제 내 연동 대상 API 문서](https://api-test-pg.bigs.im/docs/index.html)
 
